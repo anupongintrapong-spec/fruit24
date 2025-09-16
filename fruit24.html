@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+html = r"""<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Fruit24 – ฟันผลไม้ หา 24</title>
+<title>Fruit24 – ฟันผลไม้ หา 24 (Fixed Mobile Swipe)</title>
 <style>
   :root{
     --bg:#0b1020; --panel:#0e152b; --ink:#e5e7eb; --muted:#93a4bf;
@@ -19,7 +19,7 @@
   .grid{display:grid;grid-template-columns:1.3fr .7fr;gap:12px;margin-top:12px}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
   .card{background:#0e152b;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px}
-  canvas{width:100%;height:520px;background:linear-gradient(180deg,#0f1b36,#0b1327);border-radius:12px;display:block}
+  canvas{width:100%;height:520px;background:linear-gradient(180deg,#0f1b36,#0b1327);border-radius:12px;display:block;touch-action:none}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .btn{background:linear-gradient(90deg,var(--accent),var(--accent3));color:#041016;font-weight:800;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;box-shadow:0 8px 20px rgba(56,189,248,.2)}
   .btn.secondary{background:#0b1327;color:var(--ink);border:1px solid rgba(255,255,255,.12)}
@@ -117,56 +117,46 @@ const modeEl = $('#mode');
 const BEST_KEY = 'fruit24.best';
 bestEl.textContent = localStorage.getItem(BEST_KEY) || '0';
 
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j]];}return a}
 function approx(a,b,eps=1e-6){return Math.abs(a-b)<=eps}
 
-// ========= 24 Solver (returns one solution string or null) =========
+// ========= 24 Solver =========
 function solve24(nums, allowDiv=true){
-  // nums: array of 4 integers
   const ops = allowDiv ? ['+','-','*','/'] : ['+','-','*'];
   function combine(a,b,op){
     if(op==='+') return {v:a.v+b.v, s:`(${a.s}+${b.s})`};
     if(op==='-') return {v:a.v-b.v, s:`(${a.s}-${b.s})`};
     if(op==='*') return {v:a.v*b.v, s:`(${a.s}*${b.s})`};
-    if(op==='/') { if(approx(b.v,0)) return null; return {v:a.v/b.v, s:`(${a.s}/${b.s})`}; }
+    if(op==='/'){ if(Math.abs(b.v) <= 1e-9) return null; return {v:a.v/b.v, s:`(${a.s}/${b.s})`}; }
   }
   function rec(arr){
-    if(arr.length===1){ return approx(arr[0].v,24) ? arr[0].s : null; }
+    if(arr.length===1) return Math.abs(arr[0].v-24) <= 1e-6 ? arr[0].s : null;
     for(let i=0;i<arr.length;i++){
       for(let j=0;j<arr.length;j++) if(i!==j){
         const rest=[]; for(let k=0;k<arr.length;k++) if(k!==i&&k!==j) rest.push(arr[k]);
         for(const op of ops){
-          const c = combine(arr[i],arr[j],op);
-          if(!c) continue;
-          const sol = rec([...rest, c]);
-          if(sol) return sol;
+          const c = combine(arr[i],arr[j],op); if(!c) continue;
+          const sol = rec([...rest, c]); if(sol) return sol;
         }
       }
     }
     return null;
   }
   const arr = nums.map(n=>({v:n*1.0, s:String(n)}));
-  // Try permutations implicitly by varying i,j order in rec
   return rec(arr);
 }
 
 // ========= Expression validator =========
 function usesExactly(expr, bag){
-  // bag: multiset of numbers like [3,3,8,8]
-  const re = /\d+/g; const found = (expr.match(re)||[]).map(Number);
+  const re = /\\d+/g; const found = (expr.match(re)||[]).map(Number);
   if(found.length!==bag.length) return false;
-  const need = {};
-  for(const n of bag){ need[n]=(need[n]||0)+1; }
+  const need = {}; for(const n of bag){ need[n]=(need[n]||0)+1; }
   for(const n of found){ if(!need[n]) return false; need[n]--; }
   return Object.values(need).every(c=>c===0);
 }
-
 function safeEval(expr){
-  // allow digits, + - * / ( ) whitespace only
-  if(!/^[-+*/() \d.]+$/.test(expr)) throw new Error('มีอักขระที่ไม่อนุญาต');
-  // Disallow consecutive dots etc.
-  // eslint-disable-next-line no-new-func
-  return Function(`"use strict"; return (${expr});`)();
+  if(!/^[-+*/() \\d.]+$/.test(expr)) throw new Error('มีอักขระที่ไม่อนุญาต');
+  return Function('"use strict"; return ('+expr+');')();
 }
 
 // ========= Game State =========
@@ -187,7 +177,7 @@ function spawnFruit(){
   const vx = rand(-1.2,1.2);
   const vy = rand(-9.5,-7.0);
   const r = 26;
-  const hue = 20+val*30; // color by value
+  const hue = 20+val*30;
   const allowDiv = modeEl.value!=="easy";
   return {x,y,vx,vy,r,val,hue,cut:false,dead:false,allowDiv,life:0};
 }
@@ -195,51 +185,45 @@ function spawnFruit(){
 let spawnTimer=0;
 
 function update(dt){
-  // gravity & motion
   for(const f of fruits){
     if(f.dead) continue;
-    f.vy += 18*dt; // gravity
+    f.vy += 18*dt;
     f.x += f.vx*60*dt; f.y += f.vy*60*dt; f.life+=dt;
-    // out of bounds
     if(f.y > H+80) f.dead=true;
   }
   fruits = fruits.filter(f=>!f.dead);
 
-  // particles
   for(const p of particles){ p.x+=p.vx*60*dt; p.y+=p.vy*60*dt; p.vy+=25*dt; p.a-=1.2*dt; }
   particles = particles.filter(p=>p.a>0);
 
-  // swipes decay
   for(const s of swipes){ s.life -= dt; }
   swipes = swipes.filter(s=>s.life>0);
 
-  // spawn while we still need numbers
   if(running && !frozen && hand.length<4){
     spawnTimer -= dt;
     if(spawnTimer<=0){ fruits.push(spawnFruit()); spawnTimer = rand(0.5,1.2); }
   }
 
-  // check slicing intersections
   if(swipes.length && !frozen){
     const segs = [];
     for(const s of swipes){ for(let i=1;i<s.pts.length;i++){ segs.push([s.pts[i-1], s.pts[i]]); } }
-    for(const f of fruits){ if(f.cut||f.dead) continue; for(const [a,b] of segs){ if(segCircle(a,b,f)){ sliceFruit(f); break; } }
+    for(const f of fruits){
+      if(f.cut||f.dead) continue;
+      for(const [a,b] of segs){ if(segCircle(a,b,f)){ sliceFruit(f); break; } }
     }
   }
 }
 
 function segCircle(a,b,f){
-  // distance from segment ab to circle center <= r
   const vx=b.x-a.x, vy=b.y-a.y; const wx=f.x-a.x, wy=f.y-a.y; const c2=vx*vx+vy*vy; if(c2===0) return false;
   let t=(vx*wx+vy*wy)/c2; t=Math.max(0,Math.min(1,t));
   const px=a.x+t*vx, py=a.y+t*vy; const dx=f.x-px, dy=f.y-py; return (dx*dx+dy*dy) <= f.r*f.r;
 }
 
 function sliceFruit(f){
-  f.cut=true; f.dead=true; // collect number
+  f.cut=true; f.dead=true;
   hand.push(f.val); renderHand();
   splat(f.x,f.y,f.hue);
-  // stop spawning when have 4
   if(hand.length>=4){ frozen=true; }
 }
 
@@ -248,15 +232,13 @@ function splat(x,y,h){
 }
 
 function draw(){
-  // bg
   ctx.clearRect(0,0,W,H);
-  // subtle grid
   ctx.fillStyle = 'rgba(255,255,255,0.03)';
   for(let i=0;i<W;i+=40) ctx.fillRect(i,0,1,H);
   for(let j=0;j<H;j+=40) ctx.fillRect(0,j,W,1);
 
-  // fruits
-  for(const f of fruits){ if(f.dead) continue; ctx.save(); ctx.translate(f.x,f.y);
+  for(const f of fruits){
+    if(f.dead) continue; ctx.save(); ctx.translate(f.x,f.y);
     const grad = ctx.createRadialGradient(-8,-8,6,0,0,f.r);
     grad.addColorStop(0,`hsl(${f.hue} 90% 70%)`);
     grad.addColorStop(1,`hsl(${f.hue} 80% 45%)`);
@@ -264,14 +246,20 @@ function draw(){
     ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.arc(-10,-10,f.r*0.4,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(-f.r, f.r*0.6, f.r*2, 4);
     ctx.fillStyle='#08111e'; ctx.font='bold 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(f.val),0,0);
-    ctx.restore(); }
+    ctx.restore();
+  }
 
-  // particles
-  for(const p of particles){ ctx.save(); ctx.globalAlpha=Math.max(0,Math.min(1,p.a)); ctx.fillStyle=`hsl(${p.h} 90% 60%)`; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+  for(const p of particles){
+    ctx.save(); ctx.globalAlpha=Math.max(0,Math.min(1,p.a));
+    ctx.fillStyle=`hsl(${p.h} 90% 60%)`; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); ctx.restore();
+  }
 
-  // swipes
   ctx.lineWidth=4; ctx.lineCap='round';
-  for(const s of swipes){ ctx.strokeStyle=`rgba(56,189,248,${Math.max(0,s.life)})`; ctx.beginPath(); for(let i=0;i<s.pts.length;i++){ const p=s.pts[i]; if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);} ctx.stroke(); }
+  for(const s of swipes){
+    ctx.strokeStyle=`rgba(56,189,248,${Math.max(0,s.life)})`; ctx.beginPath();
+    for(let i=0;i<s.pts.length;i++){ const p=s.pts[i]; if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }
+    ctx.stroke();
+  }
 }
 
 function loop(ts){
@@ -281,23 +269,30 @@ function loop(ts){
 }
 requestAnimationFrame(loop);
 
-// ========= Input =========
-let isDown=false; let lastPoint=null;
-function addSwipePoint(x,y){
+// ========= Input (fixed for mobile scaling) =========
+let isDown=false;
+function getPos(e){
+  const rect = cvs.getBoundingClientRect();
+  const p = (e.touches && e.touches[0]) || e;
+  const scaleX = cvs.width / rect.width;
+  const scaleY = cvs.height / rect.height;
+  return { x: (p.clientX - rect.left) * scaleX, y: (p.clientY - rect.top) * scaleY };
+}
+function addSwipePointXY(x,y){
   if(!swipes.length||swipes[swipes.length-1].life<=0){ swipes.push({pts:[],life:0.2}); }
   swipes[swipes.length-1].pts.push({x,y}); swipes[swipes.length-1].life=0.2;
 }
 
-cvs.addEventListener('mousedown',e=>{ isDown=true; const r=cvs.getBoundingClientRect(); addSwipePoint(e.clientX-r.left, e.clientY-r.top); });
-cvs.addEventListener('mousemove',e=>{ if(!isDown) return; const r=cvs.getBoundingClientRect(); addSwipePoint(e.clientX-r.left, e.clientY-r.top); });
-cvs.addEventListener('mouseup',()=>{ isDown=false; });
+cvs.addEventListener('mousedown',e=>{ isDown=true; const pt=getPos(e); addSwipePointXY(pt.x,pt.y); }, {passive:true});
+cvs.addEventListener('mousemove',e=>{ if(!isDown) return; const pt=getPos(e); addSwipePointXY(pt.x,pt.y); }, {passive:true});
+cvs.addEventListener('mouseup',()=>{ isDown=false; }, {passive:true});
 
-cvs.addEventListener('touchstart',e=>{ const t=e.touches[0]; const r=cvs.getBoundingClientRect(); addSwipePoint(t.clientX-r.left,t.clientY-r.top); isDown=true; });
-cvs.addEventListener('touchmove',e=>{ const t=e.touches[0]; const r=cvs.getBoundingClientRect(); addSwipePoint(t.clientX-r.left,t.clientY-r.top); });
-cvs.addEventListener('touchend',()=>{ isDown=false; });
+cvs.addEventListener('touchstart',e=>{ isDown=true; const pt=getPos(e); addSwipePointXY(pt.x,pt.y); }, {passive:true});
+cvs.addEventListener('touchmove',e=>{ if(!isDown) return; const pt=getPos(e); addSwipePointXY(pt.x,pt.y); }, {passive:true});
+cvs.addEventListener('touchend',()=>{ isDown=false; }, {passive:true});
 
 // click-to-slice fallback
-cvs.addEventListener('click',e=>{ const r=cvs.getBoundingClientRect(); const x=e.clientX-r.left,y=e.clientY-r.top; for(const f of fruits){ const dx=x-f.x, dy=y-f.y; if(dx*dx+dy*dy<=f.r*f.r) sliceFruit(f); } });
+cvs.addEventListener('click',e=>{ const pt=getPos(e); for(const f of fruits){ const dx=pt.x-f.x, dy=pt.y-f.y; if(dx*dx+dy*dy<=f.r*f.r) sliceFruit(f); } }, {passive:true});
 
 // ========= UI actions =========
 function renderHand(){
@@ -311,7 +306,6 @@ function newRound(){
 }
 
 function newSet(){
-  // clear current fruits and instantly add 4 new numbers via quick spawn
   fruits=[]; particles=[]; swipes=[]; hand=[]; renderHand();
   for(let i=0;i<4;i++){ const f=spawnFruit(); f.y=H*0.6; f.vy=rand(-3,-1); f.x=rand(100,W-100); fruits.push(f); }
 }
@@ -332,7 +326,6 @@ function checkExpr(){
       score += 10; wins += 1; scoreEl.textContent=score; winsEl.textContent=wins; const best=Math.max(Number(bestEl.textContent||0),score); bestEl.textContent=best; localStorage.setItem(BEST_KEY,String(best));
       addHistory(`${hand.join(', ')} ⇒ ${expr} = ${val} ✓`, true);
       frozen=false; hand=[]; renderHand();
-      // slight delay then new round
       setTimeout(()=>newRound(), 400);
     } else {
       exprMsg.innerHTML = `<span class="bad">ได้ ${val} ยังไม่ใช่ 24</span>`;
@@ -363,3 +356,7 @@ renderHand(); draw();
 </script>
 </body>
 </html>
+"""
+open("/mnt/data/fruit24-fixed.html","w", encoding="utf-8").write(html)
+open("/mnt/data/index.html","w", encoding="utf-8").write(html)
+print("Saved: /mnt/data/fruit24-fixed.html and /mnt/data/index.html")
