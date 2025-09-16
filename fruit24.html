@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fruit24 – ฟันผลไม้ หา 24</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#0e152b; --ink:#e5e7eb; --muted:#93a4bf;
+    --accent:#f97316; --accent2:#22c55e; --accent3:#38bdf8; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%, #12213f 0%, #0b1020 60%), #0b1020;color:var(--ink);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Noto Sans,Arial;display:grid;place-items:center;padding:20px}
+  .app{width:100%;max-width:1100px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.45);padding:14px;backdrop-filter:blur(6px)}
+  header{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+  .title{display:flex;align-items:center;gap:10px;font-weight:900}
+  .badge{font-size:12px;color:#08111e;background:linear-gradient(90deg,var(--accent),var(--accent3));padding:2px 8px;border-radius:999px}
+  .grid{display:grid;grid-template-columns:1.3fr .7fr;gap:12px;margin-top:12px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:#0e152b;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px}
+  canvas{width:100%;height:520px;background:linear-gradient(180deg,#0f1b36,#0b1327);border-radius:12px;display:block}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .btn{background:linear-gradient(90deg,var(--accent),var(--accent3));color:#041016;font-weight:800;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;box-shadow:0 8px 20px rgba(56,189,248,.2)}
+  .btn.secondary{background:#0b1327;color:var(--ink);border:1px solid rgba(255,255,255,.12)}
+  .btn.danger{background:linear-gradient(90deg,#ef4444,#f59e0b);color:#200}
+  .select,.input{background:#0b1327;border:1px solid rgba(255,255,255,.12);color:var(--ink);padding:10px 12px;border-radius:12px;outline:none}
+  .stack{display:grid;gap:10px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{background:#091022;border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:999px}
+  .stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .box{background:#091022;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;text-align:center}
+  .label{color:var(--muted);font-size:12px}
+  .value{font-weight:900;font-size:20px}
+  .expr{display:grid;grid-template-columns:1fr auto;gap:8px}
+  .hint{color:var(--muted);font-size:12px;margin-top:4px}
+  .ok{color:#86efac}
+  .bad{color:#fca5a5}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app" role="application" aria-label="Fruit24 – ฟันผลไม้ หา 24">
+  <header>
+    <div class="title">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12c5-6 13-6 18 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 2v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <div>
+        <div style="line-height:1;font-size:20px">Fruit24</div>
+        <div class="badge">ฟันผลไม้ เก็บเลข สร้าง 24</div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn" id="playBtn">เริ่มรอบ</button>
+      <button class="btn secondary" id="pauseBtn">พัก</button>
+      <button class="btn secondary" id="resetBtn">เริ่มใหม่</button>
+      <label>โหมด
+        <select class="select" id="mode">
+          <option value="mix">ผสม (+ − × ÷)</option>
+          <option value="easy">ง่าย (ไม่มี ÷)</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <canvas id="game" width="760" height="520" aria-label="สนามผลไม้"></canvas>
+      <div class="hint">ลากเมาส์/นิ้วเพื่อฟันผลไม้ (หรือคลิกผลไม้) เก็บให้ครบ 4 เลข → ใช้สร้าง 24</div>
+    </div>
+
+    <div class="card stack">
+      <div>
+        <strong>ตัวเลขที่เก็บ</strong>
+        <div id="hand" class="chips" aria-live="polite"></div>
+      </div>
+
+      <div class="expr">
+        <input id="expr" class="input" placeholder="พิมพ์นิพจน์ เช่น (8/(3-8/3))*3" aria-label="นิพจน์คำนวณ"/>
+        <button class="btn" id="checkBtn">ตรวจคำตอบ</button>
+      </div>
+      <div id="exprMsg" class="hint"></div>
+
+      <div class="row">
+        <button class="btn secondary" id="clearBtn">ล้างนิพจน์</button>
+        <button class="btn secondary" id="newSetBtn">แจกเลขใหม่</button>
+        <button class="btn danger" id="solveBtn">ขอคำใบ้</button>
+      </div>
+
+      <div class="stat">
+        <div class="box"><div class="label">คะแนน</div><div id="score" class="value">0</div></div>
+        <div class="box"><div class="label">รอบชนะ</div><div id="wins" class="value">0</div></div>
+        <div class="box"><div class="label">สถิติสูงสุด</div><div id="best" class="value">0</div></div>
+      </div>
+
+      <div>
+        <strong>ประวัติ</strong>
+        <ul id="history" style="max-height:200px;overflow:auto;margin:6px 0 0 18px"></ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>ฝังใน Canva: ใช้แอป <em>Embed</em> แล้ววางลิงก์หรือ &lt;iframe&gt; ของหน้านี้</footer>
+</div>
+
+<script>
+// ========= Utilities =========
+const $ = (s)=>document.querySelector(s);
+const handEl = $('#hand');
+const exprEl = $('#expr');
+const exprMsg = $('#exprMsg');
+const scoreEl = $('#score');
+const winsEl = $('#wins');
+const bestEl = $('#best');
+const historyEl = $('#history');
+const modeEl = $('#mode');
+
+const BEST_KEY = 'fruit24.best';
+bestEl.textContent = localStorage.getItem(BEST_KEY) || '0';
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function approx(a,b,eps=1e-6){return Math.abs(a-b)<=eps}
+
+// ========= 24 Solver (returns one solution string or null) =========
+function solve24(nums, allowDiv=true){
+  // nums: array of 4 integers
+  const ops = allowDiv ? ['+','-','*','/'] : ['+','-','*'];
+  function combine(a,b,op){
+    if(op==='+') return {v:a.v+b.v, s:`(${a.s}+${b.s})`};
+    if(op==='-') return {v:a.v-b.v, s:`(${a.s}-${b.s})`};
+    if(op==='*') return {v:a.v*b.v, s:`(${a.s}*${b.s})`};
+    if(op==='/') { if(approx(b.v,0)) return null; return {v:a.v/b.v, s:`(${a.s}/${b.s})`}; }
+  }
+  function rec(arr){
+    if(arr.length===1){ return approx(arr[0].v,24) ? arr[0].s : null; }
+    for(let i=0;i<arr.length;i++){
+      for(let j=0;j<arr.length;j++) if(i!==j){
+        const rest=[]; for(let k=0;k<arr.length;k++) if(k!==i&&k!==j) rest.push(arr[k]);
+        for(const op of ops){
+          const c = combine(arr[i],arr[j],op);
+          if(!c) continue;
+          const sol = rec([...rest, c]);
+          if(sol) return sol;
+        }
+      }
+    }
+    return null;
+  }
+  const arr = nums.map(n=>({v:n*1.0, s:String(n)}));
+  // Try permutations implicitly by varying i,j order in rec
+  return rec(arr);
+}
+
+// ========= Expression validator =========
+function usesExactly(expr, bag){
+  // bag: multiset of numbers like [3,3,8,8]
+  const re = /\d+/g; const found = (expr.match(re)||[]).map(Number);
+  if(found.length!==bag.length) return false;
+  const need = {};
+  for(const n of bag){ need[n]=(need[n]||0)+1; }
+  for(const n of found){ if(!need[n]) return false; need[n]--; }
+  return Object.values(need).every(c=>c===0);
+}
+
+function safeEval(expr){
+  // allow digits, + - * / ( ) whitespace only
+  if(!/^[-+*/() \d.]+$/.test(expr)) throw new Error('มีอักขระที่ไม่อนุญาต');
+  // Disallow consecutive dots etc.
+  // eslint-disable-next-line no-new-func
+  return Function(`"use strict"; return (${expr});`)();
+}
+
+// ========= Game State =========
+let score=0,wins=0; let hand=[]; let frozen=false;
+
+// ========= Canvas world =========
+const cvs = document.getElementById('game');
+const ctx = cvs.getContext('2d');
+const W = cvs.width, H = cvs.height;
+let fruits=[]; let particles=[]; let swipes=[]; let running=false; let lastTime=0;
+
+function rand(min,max){return Math.random()*(max-min)+min}
+
+function spawnFruit(){
+  const val = Math.floor(rand(1,10));
+  const x = rand(80, W-80);
+  const y = H+40;
+  const vx = rand(-1.2,1.2);
+  const vy = rand(-9.5,-7.0);
+  const r = 26;
+  const hue = 20+val*30; // color by value
+  const allowDiv = modeEl.value!=="easy";
+  return {x,y,vx,vy,r,val,hue,cut:false,dead:false,allowDiv,life:0};
+}
+
+let spawnTimer=0;
+
+function update(dt){
+  // gravity & motion
+  for(const f of fruits){
+    if(f.dead) continue;
+    f.vy += 18*dt; // gravity
+    f.x += f.vx*60*dt; f.y += f.vy*60*dt; f.life+=dt;
+    // out of bounds
+    if(f.y > H+80) f.dead=true;
+  }
+  fruits = fruits.filter(f=>!f.dead);
+
+  // particles
+  for(const p of particles){ p.x+=p.vx*60*dt; p.y+=p.vy*60*dt; p.vy+=25*dt; p.a-=1.2*dt; }
+  particles = particles.filter(p=>p.a>0);
+
+  // swipes decay
+  for(const s of swipes){ s.life -= dt; }
+  swipes = swipes.filter(s=>s.life>0);
+
+  // spawn while we still need numbers
+  if(running && !frozen && hand.length<4){
+    spawnTimer -= dt;
+    if(spawnTimer<=0){ fruits.push(spawnFruit()); spawnTimer = rand(0.5,1.2); }
+  }
+
+  // check slicing intersections
+  if(swipes.length && !frozen){
+    const segs = [];
+    for(const s of swipes){ for(let i=1;i<s.pts.length;i++){ segs.push([s.pts[i-1], s.pts[i]]); } }
+    for(const f of fruits){ if(f.cut||f.dead) continue; for(const [a,b] of segs){ if(segCircle(a,b,f)){ sliceFruit(f); break; } }
+    }
+  }
+}
+
+function segCircle(a,b,f){
+  // distance from segment ab to circle center <= r
+  const vx=b.x-a.x, vy=b.y-a.y; const wx=f.x-a.x, wy=f.y-a.y; const c2=vx*vx+vy*vy; if(c2===0) return false;
+  let t=(vx*wx+vy*wy)/c2; t=Math.max(0,Math.min(1,t));
+  const px=a.x+t*vx, py=a.y+t*vy; const dx=f.x-px, dy=f.y-py; return (dx*dx+dy*dy) <= f.r*f.r;
+}
+
+function sliceFruit(f){
+  f.cut=true; f.dead=true; // collect number
+  hand.push(f.val); renderHand();
+  splat(f.x,f.y,f.hue);
+  // stop spawning when have 4
+  if(hand.length>=4){ frozen=true; }
+}
+
+function splat(x,y,h){
+  for(let i=0;i<12;i++) particles.push({x,y,vx:rand(-2,2),vy:rand(-6,-1),a:1,h});
+}
+
+function draw(){
+  // bg
+  ctx.clearRect(0,0,W,H);
+  // subtle grid
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  for(let i=0;i<W;i+=40) ctx.fillRect(i,0,1,H);
+  for(let j=0;j<H;j+=40) ctx.fillRect(0,j,W,1);
+
+  // fruits
+  for(const f of fruits){ if(f.dead) continue; ctx.save(); ctx.translate(f.x,f.y);
+    const grad = ctx.createRadialGradient(-8,-8,6,0,0,f.r);
+    grad.addColorStop(0,`hsl(${f.hue} 90% 70%)`);
+    grad.addColorStop(1,`hsl(${f.hue} 80% 45%)`);
+    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(0,0,f.r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.arc(-10,-10,f.r*0.4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(-f.r, f.r*0.6, f.r*2, 4);
+    ctx.fillStyle='#08111e'; ctx.font='bold 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(f.val),0,0);
+    ctx.restore(); }
+
+  // particles
+  for(const p of particles){ ctx.save(); ctx.globalAlpha=Math.max(0,Math.min(1,p.a)); ctx.fillStyle=`hsl(${p.h} 90% 60%)`; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+
+  // swipes
+  ctx.lineWidth=4; ctx.lineCap='round';
+  for(const s of swipes){ ctx.strokeStyle=`rgba(56,189,248,${Math.max(0,s.life)})`; ctx.beginPath(); for(let i=0;i<s.pts.length;i++){ const p=s.pts[i]; if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);} ctx.stroke(); }
+}
+
+function loop(ts){
+  if(!lastTime) lastTime=ts; const dt=Math.min(0.05,(ts-lastTime)/1000); lastTime=ts;
+  if(running){ update(dt); draw(); }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ========= Input =========
+let isDown=false; let lastPoint=null;
+function addSwipePoint(x,y){
+  if(!swipes.length||swipes[swipes.length-1].life<=0){ swipes.push({pts:[],life:0.2}); }
+  swipes[swipes.length-1].pts.push({x,y}); swipes[swipes.length-1].life=0.2;
+}
+
+cvs.addEventListener('mousedown',e=>{ isDown=true; const r=cvs.getBoundingClientRect(); addSwipePoint(e.clientX-r.left, e.clientY-r.top); });
+cvs.addEventListener('mousemove',e=>{ if(!isDown) return; const r=cvs.getBoundingClientRect(); addSwipePoint(e.clientX-r.left, e.clientY-r.top); });
+cvs.addEventListener('mouseup',()=>{ isDown=false; });
+
+cvs.addEventListener('touchstart',e=>{ const t=e.touches[0]; const r=cvs.getBoundingClientRect(); addSwipePoint(t.clientX-r.left,t.clientY-r.top); isDown=true; });
+cvs.addEventListener('touchmove',e=>{ const t=e.touches[0]; const r=cvs.getBoundingClientRect(); addSwipePoint(t.clientX-r.left,t.clientY-r.top); });
+cvs.addEventListener('touchend',()=>{ isDown=false; });
+
+// click-to-slice fallback
+cvs.addEventListener('click',e=>{ const r=cvs.getBoundingClientRect(); const x=e.clientX-r.left,y=e.clientY-r.top; for(const f of fruits){ const dx=x-f.x, dy=y-f.y; if(dx*dx+dy*dy<=f.r*f.r) sliceFruit(f); } });
+
+// ========= UI actions =========
+function renderHand(){
+  handEl.innerHTML='';
+  hand.forEach(n=>{ const d=document.createElement('div'); d.className='chip'; d.textContent=n; handEl.appendChild(d); });
+  if(hand.length===4){ exprEl.placeholder = `ใช้ ${hand.join(', ')} ให้ได้ 24`; exprMsg.textContent=''; }
+}
+
+function newRound(){
+  running=true; frozen=false; hand=[]; renderHand(); exprEl.value=''; exprMsg.textContent=''; fruits=[]; particles=[]; swipes=[]; spawnTimer=0.1; lastTime=0;
+}
+
+function newSet(){
+  // clear current fruits and instantly add 4 new numbers via quick spawn
+  fruits=[]; particles=[]; swipes=[]; hand=[]; renderHand();
+  for(let i=0;i<4;i++){ const f=spawnFruit(); f.y=H*0.6; f.vy=rand(-3,-1); f.x=rand(100,W-100); fruits.push(f); }
+}
+
+function addHistory(text, ok){
+  const li=document.createElement('li'); li.textContent=text; li.style.color = ok? '#86efac':'#fca5a5'; historyEl.prepend(li);
+}
+
+function checkExpr(){
+  const expr = exprEl.value.trim(); if(!expr){ exprMsg.textContent='พิมพ์นิพจน์ก่อนนะ'; return; }
+  if(hand.length!==4){ exprMsg.textContent='ยังเก็บเลขไม่ครบ 4'; return; }
+  if(!usesExactly(expr, hand)){ exprMsg.innerHTML = '<span class="bad">ต้องใช้ตัวเลขที่เก็บทั้ง 4 ตัวอย่างละ 1 ครั้ง</span>'; return; }
+  try{
+    const val = safeEval(expr.replace(/×/g,'*').replace(/÷/g,'/'));
+    if(!Number.isFinite(val)) throw new Error('ผลลัพธ์ไม่เป็นจำนวนจำกัด');
+    if(approx(val,24)){
+      exprMsg.innerHTML = '<span class="ok">ถูกต้อง! = 24</span>';
+      score += 10; wins += 1; scoreEl.textContent=score; winsEl.textContent=wins; const best=Math.max(Number(bestEl.textContent||0),score); bestEl.textContent=best; localStorage.setItem(BEST_KEY,String(best));
+      addHistory(`${hand.join(', ')} ⇒ ${expr} = ${val} ✓`, true);
+      frozen=false; hand=[]; renderHand();
+      // slight delay then new round
+      setTimeout(()=>newRound(), 400);
+    } else {
+      exprMsg.innerHTML = `<span class="bad">ได้ ${val} ยังไม่ใช่ 24</span>`;
+      addHistory(`${hand.join(', ')} ⇒ ${expr} = ${val} ✗`, false);
+      score = Math.max(0, score-2); scoreEl.textContent=score;
+    }
+  }catch(err){ exprMsg.innerHTML = `<span class="bad">นิพจน์ไม่ถูกต้อง: ${err.message}</span>`; }
+}
+
+function giveHint(){
+  if(hand.length!==4){ exprMsg.textContent='ยังไม่มีครบ 4 เลข'; return; }
+  const allowDiv = modeEl.value!=="easy";
+  const sol = solve24(hand, allowDiv);
+  if(sol){ exprMsg.innerHTML = `คำใบ้: <code>${sol}</code>`; }
+  else { exprMsg.innerHTML = '<span class="bad">ชุดนี้อาจไม่มีทางได้ 24 – กด "แจกเลขใหม่"</span>'; }
+}
+
+$('#playBtn').addEventListener('click', newRound);
+$('#resetBtn').addEventListener('click', ()=>{ score=0; wins=0; scoreEl.textContent=0; winsEl.textContent=0; newRound(); });
+$('#pauseBtn').addEventListener('click', ()=>{ running=!running; });
+$('#newSetBtn').addEventListener('click', newSet);
+$('#checkBtn').addEventListener('click', checkExpr);
+$('#clearBtn').addEventListener('click', ()=>{ exprEl.value=''; exprEl.focus(); exprMsg.textContent=''; });
+$('#solveBtn').addEventListener('click', giveHint);
+
+// Start idle draw
+renderHand(); draw();
+</script>
+</body>
+</html>
